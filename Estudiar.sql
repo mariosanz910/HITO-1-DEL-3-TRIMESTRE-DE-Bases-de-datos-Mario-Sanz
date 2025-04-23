@@ -50,7 +50,15 @@ ALTER SESSION SET CONTAINER = CDB$ROOT;
 -- ELIMINAR EL USUARIO DE MANERA SEGURA
 DROP USER biblioteca_admin_msv CASCADE;
 
+/* Muestro el tablespace en el que estoy trabajando. Para ello, compruebo
+    el tablespace por defecto del usuario que estoy utilizando */
+SELECT username, default_tablespace 
+FROM dba_users 
+WHERE username = USER;
+
+/*///////////////////////////////////////////////////////////////////////////////////*/
 -------------Crear una conexión nueva con biblioteca_admin_msv-------------------------
+/*///////////////////////////////////////////////////////////////////////////////////*/
 
 SHOW CON_NAME;
 
@@ -161,55 +169,46 @@ INSERT INTO Socio VALUES (tSocio('87654321B', 'Ricardo Perez', '987654321'));
 
 SELECT * FROM Socio;
 
--- CREAMOS UNA TABLA A PARTIR DE LOS DATOS DEL OBJETO TSOCIO
 
-DROP TABLE IF EXISTS Libro;
-CREATE OR REPLACE TYPE tLibro AS OBJECT (
-    Referencia VARCHAR2(20),
-    Titulo VARCHAR2(100),
-    Autor VARCHAR2(100),
-    Editorial VARCHAR2(100),
-    FechaPrestamo DATE,
-    NIFSocio VARCHAR2(9),
-    
-    MEMBER FUNCTION getLibro RETURN VARCHAR2,
-    MEMBER FUNCTION diasPrestamo RETURN NUMBER,
-    MEMBER FUNCTION diasMulta RETURN NUMBER
+/*///////////////////////////////////////////////////////////////////////////////////*/
+-------------Explicación de los objetos-------------------------
+/*///////////////////////////////////////////////////////////////////////////////////*/
+
+-- Objetos:
+DROP TYPE tDomicilio FORCE;
+
+CREATE OR REPLACE TYPE tDomicilio AS OBJECT (
+    calle varchar(50),
+    numero int,
+    piso int,
+    escalera int,
+    puerta char(2),
+    MEMBER FUNCTION getDomicilio RETURN varchar
 );
 
-CREATE OR REPLACE TYPE BODY tLibro AS
-    MEMBER FUNCTION getLibro RETURN VARCHAR2 IS
+CREATE TYPE BODY tDomicilio AS
+    MEMBER FUNCTION getDomicilio RETURN varchar IS
     BEGIN
-        RETURN 'Referencia: ' || Referencia || ', Título: ' || Titulo || ', Autor: ' || Autor || 
-               ', Editorial: ' || Editorial || ', Fecha de Préstamo: ' || TO_CHAR(FechaPrestamo, 'DD/MM/YYYY') || 
-               ', NIF Socio: ' || NIFSocio;
+        RETURN calle||' '||numero|| ' Piso: '||piso||' Escalera: '||escalera||
+            ' Puerta: '||puerta;
     END;
-    MEMBER FUNCTION diasPrestamo RETURN NUMBER IS dias NUMBER;
-        BEGIN
-            -- Calcular los días que lleva prestado el libro
-            dias := SYSDATE - FechaPrestamo;
-            RETURN dias;
-        END;
-    MEMBER FUNCTION diasMulta RETURN NUMBER IS dias NUMBER;
-        BEGIN
-            -- Calcular los días de multa (si pasaron más de 7 días desde el préstamo)
-            dias := SYSDATE - FechaPrestamo;
-            IF dias > 7 THEN
-                RETURN dias - 7;  -- Días de multa
-            ELSE
-                RETURN 0;  -- No hay multa si el préstamo no supera los 7 días
-            END IF;
-        END;
 END;
 
-CREATE TABLE Libro OF tLibro (
-    Referencia PRIMARY KEY, 
-    NIFSocio REFERENCES Socio(NIF)  
+CREATE TABLE CLIENTE (
+    NIF CHAR(9) PRIMARY KEY,
+    NOMBRE VARCHAR2(50),
+    DOMICILIO tDomicilio,
+    TLF VARCHAR2(25),
+    CIUDAD VARCHAR2(25)
 );
 
-INSERT INTO Libro VALUES (tLibro('l1', 'La República', 'Platón', 'Editorial A', TO_DATE('2025-03-01', 'YYYY-MM-DD'), '87654321B'));
-INSERT INTO Libro VALUES (tLibro('l2', 'El concepto de la angustia', 'Søren Kierkegaard', 'Editorial E', TO_DATE('2025-03-20', 'YYYY-MM-DD'), '87654321B'));
-INSERT INTO Libro VALUES (tLibro('l3', 'Meditaciones', 'Marco Aurelio', 'Editorial C', TO_DATE('2025-03-10', 'YYYY-MM-DD'), '12345678A'));
-INSERT INTO Libro VALUES (tLibro('l4', 'El ser y la nada', 'Jean-Paul Sartre', 'Editorial D', TO_DATE('2025-03-15', 'YYYY-MM-DD'), '12345678A'));
+INSERT INTO CLIENTE VALUES (
+    '11111111A', 
+    'ROSA PEREZ DELGADO', 
+    tDomicilio('Astro', 25, 3, 1, 'A'),
+    '913678090', 
+    'MADRID'
+);
 
-SELECT * FROM libro;
+SELECT c.NIF, c.NOMBRE, c.domicilio.getDomicilio()
+FROM CLIENTE c;
